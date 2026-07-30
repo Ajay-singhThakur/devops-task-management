@@ -1,14 +1,27 @@
+import { useAuth } from "../../context/AuthContext";
+
 function Navbar() {
+  const { user } = useAuth();
+
   return (
-    <nav className="bg-blue-600 text-white flex justify-between items-center px-6 py-4 shadow">
-      <h1 className="text-2xl font-bold">TaskFlow</h1>
+    <nav className="bg-white shadow-md px-8 py-4 flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-bold text-blue-600">
+          🚀 TaskFlow
+        </h1>
+        <p className="text-sm text-gray-500">
+          Task Management System
+        </p>
+      </div>
 
-      <div className="flex items-center gap-4">
-        <span>Welcome, Ajay</span>
+      <div className="text-right">
+        <p className="text-gray-500 text-sm">
+          Welcome
+        </p>
 
-        <button className="bg-red-500 px-4 py-2 rounded hover:bg-red-600">
-          Logout
-        </button>
+        <h2 className="text-lg font-semibold text-gray-800">
+          {user?.name || "User"} 👋
+        </h2>
       </div>
     </nav>
   );

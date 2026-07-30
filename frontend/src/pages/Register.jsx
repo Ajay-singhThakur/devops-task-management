@@ -1,8 +1,41 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
+import { registerUser } from "../services/authService";
+import { toast } from "react-toastify";
 
 function Register() {
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      await registerUser(form);
+      toast.success("Registration Successful");
+      navigate("/");
+    } catch (error) {
+      toast.error(
+  error.response?.data?.message ||
+  "Registration Failed"
+);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white w-full max-w-md p-8 rounded-xl shadow-lg">
@@ -15,21 +48,34 @@ function Register() {
           Create your account
         </p>
 
-        <Input
-          placeholder="Full Name"
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-        <Input
-          type="email"
-          placeholder="Email"
-        />
+          <Input
+            name="name"
+            placeholder="Full Name"
+            value={form.name}
+            onChange={handleChange}
+          />
 
-        <Input
-          type="password"
-          placeholder="Password"
-        />
+          <Input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+          />
 
-        <Button text="Register" />
+          <Input
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+          />
+
+          <Button text="Register" type="submit" />
+
+        </form>
 
         <p className="text-center mt-6 text-gray-600">
           Already have an account?{" "}
