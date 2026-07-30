@@ -1,0 +1,35 @@
+# Node Modules
+node_modules/
+
+# Environment Files
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Build Files
+dist/
+build/
+
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+
+
+# Docker
+*.tar
+
+# Kubernetes
+*.yaml.bak
+
+
+# Misc
+npm-debug.log*
+yarn-error.log*
