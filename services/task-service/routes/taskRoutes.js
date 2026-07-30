@@ -10,18 +10,30 @@ import {
   toggleTaskStatusController,
 } from "../controllers/taskController.js";
 
+import {
+  createTaskValidation,
+  updateTaskValidation,
+} from "../validations/taskValidation.js";
+
 const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post("/", createTaskController);
+router.post(
+  "/",
+  createTaskValidation,
+  createTaskController
+);
 
 router.get("/", getTasksController);
 
-router.put("/:id", updateTaskController);
+router.put(
+  "/:id",
+  updateTaskValidation,
+  updateTaskController
+);
 
 router.patch("/:id/status", toggleTaskStatusController);
 
 router.delete("/:id", deleteTaskController);
-
 export default router;

@@ -8,12 +8,29 @@ import {
 
 import authMiddleware from "../middleware/authMiddleware.js";
 
+import {
+  registerValidation,
+  loginValidation,
+} from "../validations/authValidation.js";
+
 const router = express.Router();
 
-router.post("/register", registerUser);
+router.post(
+  "/register",
+  registerValidation,
+  registerUser
+);
 
-router.post("/login", loginUser);
+router.post(
+  "/login",
+  loginValidation,
+  loginUser
+);
 
-router.get("/profile", authMiddleware, getProfile);
+router.get(
+  "/profile",
+  authMiddleware,
+  getProfile
+);
 
 export default router;

@@ -1,3 +1,5 @@
+import asyncHandler from "../middleware/asyncHandler.js";
+
 import {
   createTask,
   getTasks,
@@ -6,121 +8,74 @@ import {
   toggleTaskStatus,
 } from "../services/taskService.js";
 
-export const createTaskController = async (req, res) => {
-  try {
-    const { title, description } = req.body;
+export const createTaskController = asyncHandler(async (req, res) => {
+  const { title, description } = req.body;
 
-    if (!title) {
-      return res.status(400).json({
-        message: "Title is required",
-      });
-    }
+  const task = await createTask({
+    title,
+    description,
+    userId: req.user.id,
+  });
 
-    const task = await createTask({
-      title,
-      description,
-      userId: req.user.id,
-    });
+  res.status(201).json({
+    message: "Task created successfully",
+    task,
+  });
+});
 
-    res.status(201).json({
-      message: "Task created successfully",
-      task,
-    });
+export const getTasksController = asyncHandler(async (req, res) => {
+  const tasks = await getTasks(req.user.id);
 
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+  res.status(200).json({
+    count: tasks.length,
+    tasks,
+  });
+});
+
+export const updateTaskController = asyncHandler(async (req, res) => {
+  const task = await updateTask(
+    req.params.id,
+    req.user.id,
+    req.body
+  );
+
+  if (!task) {
+    throw new ApiError(404, "Task not found");
   }
-};
 
-export const getTasksController = async (req, res) => {
-  try {
-    const tasks = await getTasks(req.user.id);
+  res.status(200).json({
+    message: "Task updated successfully",
+    task,
+  });
+});
 
-    res.status(200).json({
-      count: tasks.length,
-      tasks,
-    });
+export const deleteTaskController = asyncHandler(async (req, res) => {
+  const task = await deleteTask(
+    req.params.id,
+    req.user.id
+  );
 
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
   }
-};
-export const updateTaskController = async (req, res) => {
-  try {
-    const task = await updateTask(
-      req.params.id,
-      req.user.id,
-      req.body
-    );
 
-    if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
-    }
+  res.status(200).json({
+    message: "Task deleted successfully",
+  });
+});
 
-    res.json({
-      message: "Task updated successfully",
-      task,
-    });
+export const toggleTaskStatusController = asyncHandler(async (req, res) => {
+  const task = await toggleTaskStatus(
+    req.params.id,
+    req.user.id
+  );
 
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+  if (!task) {
+    throw new ApiError(404, "Task not found");
   }
-};
-export const deleteTaskController = async (req, res) => {
-  try {
-    const task = await deleteTask(
-      req.params.id,
-      req.user.id
-    );
 
-    if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
-    }
-
-    res.json({
-      message: "Task deleted successfully",
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-export const toggleTaskStatusController = async (
-  req,
-  res
-) => {
-  try {
-    const task = await toggleTaskStatus(
-      req.params.id,
-      req.user.id
-    );
-
-    if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
-    }
-
-    res.json({
-      message: "Task status updated",
-      task,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
+  res.status(200).json({
+    message: "Task status updated successfully",
+    task,
+  });
+});

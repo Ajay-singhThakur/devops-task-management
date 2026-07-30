@@ -4,10 +4,11 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-
+import logger from "./utils/logger.js";
 import validateEnv from "./config/validateEnv.js";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import errorMiddleware from "./middleware/errorMiddleware.js";
 
 dotenv.config();
 validateEnv();
@@ -53,10 +54,12 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
+app.use("/api/v1/auth", authRoutes);
+
+app.use(errorMiddleware);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 User Service running on port ${PORT}`);
+logger.info(`User Service running on port ${PORT}`);
 });

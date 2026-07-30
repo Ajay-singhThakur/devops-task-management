@@ -4,10 +4,11 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-
+import logger from "./utils/logger.js";
 import validateEnv from "./config/validateEnv.js";
 import connectDB from "./config/db.js";
 import taskRoutes from "./routes/taskRoutes.js";
+import errorMiddleware from "./middleware/errorMiddleware.js";
 
 dotenv.config();
 validateEnv();
@@ -41,10 +42,12 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/tasks", taskRoutes);
+app.use("/api/v1/tasks", taskRoutes);
+
+app.use(errorMiddleware);
 
 const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Task Service running on port ${PORT}`);
+  logger.info(`Task Service running on port ${PORT}`);
 });

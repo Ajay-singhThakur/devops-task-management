@@ -1,66 +1,43 @@
+import asyncHandler from "../middleware/asyncHandler.js";
+import ApiError from "../utils/ApiError.js";
+
 import {
   register,
   login,
 } from "../services/authService.js";
 
-export const registerUser = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+export const registerUser = asyncHandler(async (req, res) => {
+  const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "All fields are required",
-      });
-    }
+  const user = await register({
+    name,
+    email,
+    password,
+  });
 
-    const user = await register({
-      name,
-      email,
-      password,
-    });
+  res.status(201).json({
+    message: "User registered successfully",
+    user,
+  });
+});
 
-    res.status(201).json({
-      message: "User registered successfully",
-      user,
-    });
+export const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
-  } catch (error) {
-    res.status(400).json({
-      message: error.message,
-    });
-  }
-};
+  const data = await login({
+    email,
+    password,
+  });
 
-export const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  res.status(200).json({
+    message: "Login successful",
+    ...data,
+  });
+});
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-      });
-    }
-
-    const data = await login({
-      email,
-      password,
-    });
-
-    res.status(200).json({
-      message: "Login successful",
-      ...data,
-    });
-
-  } catch (error) {
-    res.status(401).json({
-      message: error.message,
-    });
-  }
-};
-
-export const getProfile = (req, res) => {
+export const getProfile = asyncHandler(async (req, res) => {
   res.status(200).json({
     message: "Profile fetched successfully",
     user: req.user,
   });
-};
+});
