@@ -1,35 +1,28 @@
-# Node Modules
-node_modules/
-
-# Environment Files
+# Environment
 .env
-.env.*
+**/.env
 
 # Logs
-logs/
+logs
 *.log
 
-# Build Files
-dist/
-build/
+# Node
+node_modules
+**/node_modules
 
+# Build output
+dist
+coverage
 
-# OS Files
+# OS files
 .DS_Store
 Thumbs.db
 
-# VS Code
+# IDE
 .vscode/
+.idea/
 
-
-
-# Docker
-*.tar
-
-# Kubernetes
-*.yaml.bak
-
-
-# Misc
-npm-debug.log*
-yarn-error.log*
+# Terraform (later if applicable)
+.terraform/
+*.tfstate
+*.tfstate.*
