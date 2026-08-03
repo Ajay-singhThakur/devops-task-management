@@ -1,13 +1,13 @@
 import axios from "axios";
 
-const taskApi = axios.create({
-  baseURL: "http://localhost:5001/api/v1",
+const api = axios.create({
+  baseURL: "/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-taskApi.interceptors.request.use((config) => {
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 
   if (token) {
@@ -17,4 +17,4 @@ taskApi.interceptors.request.use((config) => {
   return config;
 });
 
-export default taskApi;
+export default api;

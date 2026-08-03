@@ -1,12 +1,12 @@
-import authApi from "./authApi";
+import api from "./api";
 
 export const registerUser = async (userData) => {
-  const response = await authApi.post("/auth/register", userData);
+  const response = await api.post("/auth/register", userData);
   return response.data;
 };
 
 export const loginUser = async (userData) => {
-  const response = await authApi.post("/auth/login", userData);
+  const response = await api.post("/auth/login", userData);
 
   localStorage.setItem("token", response.data.token);
 
@@ -14,7 +14,7 @@ export const loginUser = async (userData) => {
 };
 
 export const getProfile = async () => {
-  const response = await authApi.get("/auth/profile");
+  const response = await api.get("/auth/profile");
   return response.data;
 };
 
