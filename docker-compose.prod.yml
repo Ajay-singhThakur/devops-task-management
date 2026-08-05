@@ -1,0 +1,85 @@
+name: taskflow
+
+services:
+
+  frontend:
+    image: taskflow/frontend:v1
+
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: taskflow-frontend
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      user-service:
+        condition: service_healthy
+      task-service:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - taskflow-network
+
+
+  user-service:
+    image: taskflow/user-service:v1
+
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-user
+
+    expose:
+      - "5000"
+
+    env_file:
+      - ./services/user-service/.env
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    networks:
+      - taskflow-network
+
+
+  task-service:
+    image: taskflow/task-service:v1
+
+    build:
+      context: ./services/task-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-task
+
+    expose:
+      - "5001"
+
+    env_file:
+      - ./services/task-service/.env
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    networks:
+      - taskflow-network
+
+
+networks:
+  taskflow-network:
+    driver: bridge
