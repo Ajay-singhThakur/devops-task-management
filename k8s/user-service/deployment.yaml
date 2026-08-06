@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: taskflow/user-service:v1
+          image: ajayapst/taskflow-user-service:v1
           imagePullPolicy: IfNotPresent
 
           ports:

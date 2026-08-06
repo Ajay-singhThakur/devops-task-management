@@ -23,7 +23,7 @@ spec:
       containers:
         - name: frontend
 
-          image: taskflow/frontend:v1
+          image: ajayapst/taskflow-frontend:v1
 
           imagePullPolicy: IfNotPresent
 
