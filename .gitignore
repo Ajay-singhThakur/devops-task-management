@@ -26,3 +26,6 @@ Thumbs.db
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Kubernetes Secrets
+k8s/secret.yaml
