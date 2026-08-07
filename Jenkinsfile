@@ -2,43 +2,87 @@ pipeline {
     agent any
 
     environment {
-        FRONTEND_IMAGE = "ajayapst/taskflow-frontend"
-        USER_IMAGE = "ajayapst/taskflow-user-service"
-        TASK_IMAGE = "ajayapst/taskflow-task-service"
+        REGISTRY = "docker.io"
+        DOCKER_USER = "ajayapst"
+        FRONTEND_IMAGE = "${DOCKER_USER}/taskflow-frontend"
+        USER_IMAGE = "${DOCKER_USER}/taskflow-user-service"
+        TASK_IMAGE = "${DOCKER_USER}/taskflow-task-service"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Pre Check') {
             steps {
-                echo 'Checking out source code...'
-                checkout scm
+                sh '''
+                echo "==== Environment Check ===="
+                docker --version
+                git --version
+                docker info
+                df -h
+                docker system df
+                '''
             }
         }
 
-        stage('Build frontend') {
+        stage('Docker Login') {
             steps {
-                dir('frontend') {
-                    sh 'docker build -t ${FRONTEND_IMAGE}:latest .'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER'
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]){
+
+                sh '''
+                echo "$DOCKER_PASS" | docker login \
+                -u "$DOCKER_USER" \
+                --password-stdin
+                '''
                 }
             }
         }
 
-        stage('Build user service') {
+        stage('Build Images') {
+
             steps {
-                dir ('services/user-service') {
-                    sh 'docker build -t ${USER_IMAGE}:latest .'
-                }
+
+                sh '''
+                docker build \
+                -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                -t ${FRONTEND_IMAGE}:latest \
+                frontend
+
+                docker build \
+                -t ${USER_IMAGE}:${IMAGE_TAG} \
+                -t ${USER_IMAGE}:latest \
+                services/user-service
+
+                docker build \
+                -t ${TASK_IMAGE}:${IMAGE_TAG} \
+                -t ${TASK_IMAGE}:latest \
+                services/task-service
+                '''
+            }
+
+        }
+        stage('Push Images') {
+            steps {
+                sh '''
+                docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                docker push ${FRONTEND_IMAGE}:latest
+
+                 docker push ${USER_IMAGE}:${IMAGE_TAG}
+                 docker push ${USER_IMAGE}:latest
+
+                 docker push ${TASK_IMAGE}:${IMAGE_TAG}
+                 docker push ${TASK_IMAGE}:latest
+                 '''
             }
         }
 
-        stage('Build task service') {
-            steps {
-                dir('services/task-service') {
-                    sh 'docker build -t ${TASK_IMAGE}:latest .'
-                }
-            }
-        }
+
 
     }
 }
