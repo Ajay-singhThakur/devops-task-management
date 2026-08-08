@@ -21,6 +21,29 @@ FRONTEND_IMAGE="${DOCKER_USER}/taskflow-frontend:${BUILD_NUMBER}"
 USER_IMAGE="${DOCKER_USER}/taskflow-user-service:${BUILD_NUMBER}"
 TASK_IMAGE="${DOCKER_USER}/taskflow-task-service:${BUILD_NUMBER}"
 
+########################################
+# Verify Docker Images
+########################################
+
+verify_image() {
+
+    local image="$1"
+
+    echo ""
+    echo ">>> Verifying image: ${image}"
+
+    if docker manifest inspect "${image}" > /dev/null 2>&1; then
+        echo ">>> Image exists: ${image}"
+    else
+        echo "ERROR: Image does not exist: ${image}"
+        exit 1
+    fi
+}
+
+verify_image "${FRONTEND_IMAGE}"
+verify_image "${USER_IMAGE}"
+verify_image "${TASK_IMAGE}"
+
 echo "=========================================="
 echo " TaskFlow Kubernetes Deployment"
 echo " Build       : ${BUILD_NUMBER}"
