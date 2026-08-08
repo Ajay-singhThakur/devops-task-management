@@ -1,6 +1,10 @@
 #!/bin/bash
 
 set -euo pipefail
+KUBECONFIG="/home/ubuntu/.kube/config"
+export KUBECONFIG
+
+
 
 ########################################
 # TaskFlow Kubernetes Deployment

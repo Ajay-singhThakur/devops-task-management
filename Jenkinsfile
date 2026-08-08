@@ -1,9 +1,8 @@
 pipeline {
-
     agent any
 
     environment {
-        DOCKERHUB_USER = "ajayapst"
+        DOCKERHUB_USER = 'ajayapst'
 
         FRONTEND_IMAGE = "${DOCKERHUB_USER}/taskflow-frontend"
         USER_IMAGE     = "${DOCKERHUB_USER}/taskflow-user-service"
@@ -11,11 +10,10 @@ pipeline {
 
         IMAGE_TAG = "${BUILD_NUMBER}"
 
-        K8S_HOST = "15.252.102.247"
+        K8S_HOST = '15.252.102.247'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -49,7 +47,6 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-creds',
@@ -57,7 +54,6 @@ pipeline {
                         passwordVariable: 'DH_PASS'
                     )
                 ]) {
-
                     sh '''
                         set -e
 
@@ -75,7 +71,6 @@ pipeline {
 
         stage('Build Images') {
             steps {
-
                 sh '''
                     set -e
 
@@ -119,7 +114,6 @@ pipeline {
 
         stage('Push Images') {
             steps {
-
                 sh '''
                     set -e
 
@@ -141,7 +135,6 @@ pipeline {
 
         stage('Verify Images') {
             steps {
-
                 sh '''
                     set -e
 
@@ -169,9 +162,7 @@ pipeline {
 
         stage('Prepare App EC2') {
             steps {
-
                 sshagent(credentials: ['k8s-ssh']) {
-
                     sh '''
                         set -e
 
@@ -186,11 +177,10 @@ pipeline {
                 }
             }
         }
-        stage('Bootstrap K3s Access') {
+         
+         stage('Bootstrap K3s Access') {
     steps {
-
         sshagent(credentials: ['k8s-ssh']) {
-
             sh '''
                 set -e
 
@@ -220,7 +210,7 @@ pipeline {
                             exit 1
                         fi
 
-                        echo ">>> Configuring kubectl for ubuntu..."
+                        echo ">>> Creating user kubeconfig..."
 
                         sudo mkdir -p /home/ubuntu/.kube
 
@@ -236,7 +226,9 @@ pipeline {
 
                         echo ">>> Testing Kubernetes access..."
 
-                        kubectl get nodes
+                        kubectl \
+                            --kubeconfig=/home/ubuntu/.kube/config \
+                            get nodes
 
                         echo ">>> K3s access is ready."
                     '
@@ -246,55 +238,77 @@ pipeline {
 }
 
         stage('Create Kubernetes Secret') {
-            steps {
+    steps {
 
-                withCredentials([
-                    string(
-                        credentialsId: 'taskflow-jwt-secret',
-                        variable: 'JWT_SECRET'
-                    ),
-                    string(
-                        credentialsId: 'taskflow-user-mongo-uri',
-                        variable: 'USER_MONGO_URI'
-                    ),
-                    string(
-                        credentialsId: 'taskflow-task-mongo-uri',
-                        variable: 'TASK_MONGO_URI'
-                    )
-                ]) {
+        withCredentials([
+            string(
+                credentialsId: 'taskflow-jwt-secret',
+                variable: 'JWT_SECRET'
+            ),
+            string(
+                credentialsId: 'taskflow-user-mongo-uri',
+                variable: 'USER_MONGO_URI'
+            ),
+            string(
+                credentialsId: 'taskflow-task-mongo-uri',
+                variable: 'TASK_MONGO_URI'
+            )
+        ]) {
 
-                    sshagent(credentials: ['k8s-ssh']) {
+            sshagent(credentials: ['k8s-ssh']) {
 
-                        sh '''
-                            set -e
+                sh '''
+                    set -e
 
-                            echo "=========================================="
-                            echo " Creating Kubernetes Secret"
-                            echo "=========================================="
+                    echo "=========================================="
+                    echo " Creating Kubernetes Secret"
+                    echo "=========================================="
 
-                            printf '%s\\n' \
-                                "JWT_SECRET=${JWT_SECRET}" \
-                                "USER_MONGO_URI=${USER_MONGO_URI}" \
-                                "TASK_MONGO_URI=${TASK_MONGO_URI}" \
-                            | ssh -o StrictHostKeyChecking=no \
-                                ubuntu@"${K8S_HOST}" \
-                                'kubectl create namespace taskflow --dry-run=client -o yaml | kubectl apply -f - && \
-                                 kubectl create secret generic taskflow-secret \
-                                 --namespace taskflow \
-                                 --from-env-file=/dev/stdin \
-                                 --dry-run=client \
-                                 -o yaml | kubectl apply -f -'
-                        '''
-                    }
-                }
+                    printf '%s\\n' \
+                        "JWT_SECRET=${JWT_SECRET}" \
+                        "USER_MONGO_URI=${USER_MONGO_URI}" \
+                        "TASK_MONGO_URI=${TASK_MONGO_URI}" \
+                    | ssh -o StrictHostKeyChecking=no \
+                        ubuntu@"${K8S_HOST}" \
+                        '
+                        set -e
+
+                        KUBECONFIG="/home/ubuntu/.kube/config"
+
+                        echo ">>> Verifying Kubernetes access..."
+
+                        kubectl \
+                            --kubeconfig="${KUBECONFIG}" \
+                            get namespace taskflow \
+                            > /dev/null 2>&1 || \
+                        kubectl \
+                            --kubeconfig="${KUBECONFIG}" \
+                            create namespace taskflow
+
+                        echo ">>> Creating/updating Kubernetes Secret..."
+
+                        kubectl \
+                            --kubeconfig="${KUBECONFIG}" \
+                            create secret generic taskflow-secret \
+                            --namespace taskflow \
+                            --from-env-file=/dev/stdin \
+                            --dry-run=client \
+                            -o yaml \
+                        | kubectl \
+                            --kubeconfig="${KUBECONFIG}" \
+                            apply -f -
+
+                        echo ">>> Kubernetes Secret ready."
+                        '
+                '''
             }
         }
+    }
+}
 
         stage('Transfer Kubernetes Files') {
             steps {
-
                 sshagent(credentials: ['k8s-ssh']) {
-
                     sh '''
                         set -e
 
@@ -323,9 +337,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-
                 sshagent(credentials: ['k8s-ssh']) {
-
                     sh '''
                         set -e
 
@@ -352,7 +364,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo '''
 ==========================================
@@ -377,3 +388,4 @@ Check the failed stage and Kubernetes rollout logs.
         }
     }
 }
+
