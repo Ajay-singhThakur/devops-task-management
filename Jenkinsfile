@@ -91,7 +91,8 @@ pipeline {
                       set -e
                       cd ~/devops-task-management
                       echo "Updating deployment repository..."
-                      git pull --ff-only
+                      git fetch origin
+                      git reset --hard origin/main
                       chmod +x scripts/deploy-k8s.sh
                       echo "Starting kubernetes deployment..."
                       ./scripts/deploy-k8s.sh ${BUILD_NUMBER} '
