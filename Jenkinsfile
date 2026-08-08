@@ -8,6 +8,7 @@ pipeline {
         USER_IMAGE = "${DOCKER_USER}/taskflow-user-service"
         TASK_IMAGE = "${DOCKER_USER}/taskflow-task-service"
         IMAGE_TAG = "${BUILD_NUMBER}"
+        K8S_HOST = ""
     }
 
     stages {
@@ -82,6 +83,22 @@ pipeline {
             }
         }
 
+        stage('Deploy to Kubernetes') {
+            steps {
+                sshagent(credentials: ['k8s-ssh']) {
+                    sh """
+                      shh -o StrictHostKeyChecking=no ubuntu@${K8S_HOST} '
+                      set -e
+                      cd ~/devops-task-management
+                      echo "Updating deployment repository..."
+                      git pull --ff-only
+                      chmod +x scripts/deploy-k8s.sh
+                      echo "Starting kubernetes deployment..."
+                      ./scripts/deploy-k8s.sh ${BUILD_NUMBER} '
+                      """
+                }
+            }
+        }
 
 
     }
