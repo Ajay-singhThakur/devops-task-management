@@ -1,7 +1,8 @@
 # Environment
 .env
 **/.env
-
+!.env.example
+.env.*
 # Logs
 logs
 *.log
@@ -22,10 +23,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Terraform (later if applicable)
-.terraform/
-*.tfstate
-*.tfstate.*
 
 # Kubernetes Secrets
 k8s/secret.yaml

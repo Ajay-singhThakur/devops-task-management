@@ -1,9 +1,8 @@
 pipeline {
+
     agent any
 
     environment {
-        REGISTRY = "docker.io"
-
         DOCKERHUB_USER = "ajayapst"
 
         FRONTEND_IMAGE = "${DOCKERHUB_USER}/taskflow-frontend"
@@ -17,35 +16,57 @@ pipeline {
 
     stages {
 
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Pre Check') {
             steps {
                 sh '''
+                    set -e
+
                     echo "=========================================="
                     echo " Environment Check"
                     echo "=========================================="
 
-                    docker --version
                     git --version
+                    docker --version
                     docker info
                     df -h
-                    docker system df
+
+                    echo ""
+                    echo "Workspace:"
+                    pwd
+
+                    echo ""
+                    echo "Git commit:"
+                    git rev-parse --short HEAD
                 '''
             }
         }
 
         stage('Docker Login') {
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
+                        usernameVariable: 'DH_USER',
+                        passwordVariable: 'DH_PASS'
                     )
                 ]) {
 
                     sh '''
-                        echo "$DOCKER_PASS" | docker login \
-                            -u "$DOCKER_USER" \
+                        set -e
+
+                        echo "=========================================="
+                        echo " Docker Hub Login"
+                        echo "=========================================="
+
+                        echo "$DH_PASS" | docker login \
+                            -u "$DH_USER" \
                             --password-stdin
                     '''
                 }
@@ -54,75 +75,247 @@ pipeline {
 
         stage('Build Images') {
             steps {
+
                 sh '''
+                    set -e
+
                     echo "=========================================="
                     echo " Building Docker Images"
+                    echo " Build: ${IMAGE_TAG}"
                     echo "=========================================="
 
+                    echo ""
+                    echo ">>> Building frontend..."
+
                     docker build \
-                        -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                        -t ${FRONTEND_IMAGE}:latest \
+                        --build-arg VITE_API_URL="/api/v1" \
+                        -t "${FRONTEND_IMAGE}:${IMAGE_TAG}" \
+                        -t "${FRONTEND_IMAGE}:latest" \
                         frontend
 
-                    docker build \
-                        -t ${USER_IMAGE}:${IMAGE_TAG} \
-                        -t ${USER_IMAGE}:latest \
-                        services/user-service
+                    echo ""
+                    echo ">>> Building user-service..."
 
                     docker build \
-                        -t ${TASK_IMAGE}:${IMAGE_TAG} \
-                        -t ${TASK_IMAGE}:latest \
+                        -t "${USER_IMAGE}:${IMAGE_TAG}" \
+                        -t "${USER_IMAGE}:latest" \
+                        services/user-service
+
+                    echo ""
+                    echo ">>> Building task-service..."
+
+                    docker build \
+                        -t "${TASK_IMAGE}:${IMAGE_TAG}" \
+                        -t "${TASK_IMAGE}:latest" \
                         services/task-service
+
+                    echo ""
+                    echo ">>> Images built successfully."
+
+                    docker images | grep taskflow
                 '''
             }
         }
 
         stage('Push Images') {
             steps {
+
                 sh '''
+                    set -e
+
                     echo "=========================================="
                     echo " Pushing Docker Images"
                     echo "=========================================="
 
-                    docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
-                    docker push ${FRONTEND_IMAGE}:latest
+                    docker push "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    docker push "${FRONTEND_IMAGE}:latest"
 
-                    docker push ${USER_IMAGE}:${IMAGE_TAG}
-                    docker push ${USER_IMAGE}:latest
+                    docker push "${USER_IMAGE}:${IMAGE_TAG}"
+                    docker push "${USER_IMAGE}:latest"
 
-                    docker push ${TASK_IMAGE}:${IMAGE_TAG}
-                    docker push ${TASK_IMAGE}:latest
+                    docker push "${TASK_IMAGE}:${IMAGE_TAG}"
+                    docker push "${TASK_IMAGE}:latest"
                 '''
+            }
+        }
+
+        stage('Verify Images') {
+            steps {
+
+                sh '''
+                    set -e
+
+                    echo "=========================================="
+                    echo " Verifying Docker Images"
+                    echo "=========================================="
+
+                    echo "Checking frontend..."
+                    docker manifest inspect \
+                        "${FRONTEND_IMAGE}:${IMAGE_TAG}" > /dev/null
+
+                    echo "Checking user-service..."
+                    docker manifest inspect \
+                        "${USER_IMAGE}:${IMAGE_TAG}" > /dev/null
+
+                    echo "Checking task-service..."
+                    docker manifest inspect \
+                        "${TASK_IMAGE}:${IMAGE_TAG}" > /dev/null
+
+                    echo ""
+                    echo "All images verified successfully."
+                '''
+            }
+        }
+
+        stage('Prepare App EC2') {
+            steps {
+
+                sshagent(credentials: ['k8s-ssh']) {
+
+                    sh '''
+                        set -e
+
+                        echo "=========================================="
+                        echo " Preparing Kubernetes EC2"
+                        echo "=========================================="
+
+                        ssh -o StrictHostKeyChecking=no \
+                            ubuntu@"${K8S_HOST}" \
+                            'mkdir -p /tmp/taskflow-deploy && rm -rf /tmp/taskflow-deploy/*'
+                    '''
+                }
+            }
+        }
+
+        stage('Create Kubernetes Secret') {
+            steps {
+
+                withCredentials([
+                    string(
+                        credentialsId: 'taskflow-jwt-secret',
+                        variable: 'JWT_SECRET'
+                    ),
+                    string(
+                        credentialsId: 'taskflow-user-mongo-uri',
+                        variable: 'USER_MONGO_URI'
+                    ),
+                    string(
+                        credentialsId: 'taskflow-task-mongo-uri',
+                        variable: 'TASK_MONGO_URI'
+                    )
+                ]) {
+
+                    sshagent(credentials: ['k8s-ssh']) {
+
+                        sh '''
+                            set -e
+
+                            echo "=========================================="
+                            echo " Creating Kubernetes Secret"
+                            echo "=========================================="
+
+                            printf '%s\\n' \
+                                "JWT_SECRET=${JWT_SECRET}" \
+                                "USER_MONGO_URI=${USER_MONGO_URI}" \
+                                "TASK_MONGO_URI=${TASK_MONGO_URI}" \
+                            | ssh -o StrictHostKeyChecking=no \
+                                ubuntu@"${K8S_HOST}" \
+                                'kubectl create namespace taskflow --dry-run=client -o yaml | kubectl apply -f - && \
+                                 kubectl create secret generic taskflow-secret \
+                                 --namespace taskflow \
+                                 --from-env-file=/dev/stdin \
+                                 --dry-run=client \
+                                 -o yaml | kubectl apply -f -'
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Transfer Kubernetes Files') {
+            steps {
+
+                sshagent(credentials: ['k8s-ssh']) {
+
+                    sh '''
+                        set -e
+
+                        echo "=========================================="
+                        echo " Transferring Kubernetes Files"
+                        echo "=========================================="
+
+                        scp -o StrictHostKeyChecking=no \
+                            k8s/namespace.yaml \
+                            k8s/configmap.yaml \
+                            k8s/ingress.yaml \
+                            ubuntu@"${K8S_HOST}":/tmp/taskflow-deploy/
+
+                        scp -r -o StrictHostKeyChecking=no \
+                            k8s/services \
+                            k8s/deployments \
+                            ubuntu@"${K8S_HOST}":/tmp/taskflow-deploy/
+
+                        scp -o StrictHostKeyChecking=no \
+                            scripts/deploy-k8s.sh \
+                            ubuntu@"${K8S_HOST}":/tmp/taskflow-deploy/
+                    '''
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
+
                 sshagent(credentials: ['k8s-ssh']) {
 
-                    sh """
+                    sh '''
+                        set -e
+
                         echo "=========================================="
-                        echo " Deploying to Kubernetes"
-                        echo " Build: ${BUILD_NUMBER}"
+                        echo " Kubernetes Deployment"
+                        echo " Build: ${IMAGE_TAG}"
                         echo "=========================================="
 
-                        ssh -o StrictHostKeyChecking=no ubuntu@${K8S_HOST} '
+                        ssh -o StrictHostKeyChecking=no \
+                            ubuntu@"${K8S_HOST}" \
+                            "
                             set -e
 
-                            cd ~/devops-task-management
+                            cd /tmp/taskflow-deploy
 
-                            echo "Syncing deployment server with GitHub..."
+                            chmod +x deploy-k8s.sh
 
-                            git fetch origin
-                            git reset --hard origin/main
-
-                            echo "Starting Kubernetes deployment..."
-
-                            ./scripts/deploy-k8s.sh ${BUILD_NUMBER}
-                        '
-                    """
+                            ./deploy-k8s.sh ${IMAGE_TAG}
+                            "
+                    '''
                 }
             }
+        }
+    }
+
+    post {
+
+        success {
+            echo '''
+==========================================
+ TASKFLOW PIPELINE SUCCESSFUL
+==========================================
+'''
+        }
+
+        failure {
+            echo '''
+==========================================
+ TASKFLOW PIPELINE FAILED
+==========================================
+Check the failed stage and Kubernetes rollout logs.
+'''
+        }
+
+        always {
+            sh '''
+                docker logout || true
+            '''
         }
     }
 }
