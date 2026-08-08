@@ -186,6 +186,64 @@ pipeline {
                 }
             }
         }
+        stage('Bootstrap K3s Access') {
+    steps {
+
+        sshagent(credentials: ['k8s-ssh']) {
+
+            sh '''
+                set -e
+
+                echo "=========================================="
+                echo " Bootstrapping K3s Access"
+                echo "=========================================="
+
+                ssh -o StrictHostKeyChecking=no \
+                    ubuntu@"${K8S_HOST}" '
+                        set -e
+
+                        echo ">>> Waiting for K3s..."
+
+                        for i in $(seq 1 30); do
+                            if sudo systemctl is-active --quiet k3s; then
+                                echo ">>> K3s is running."
+                                break
+                            fi
+
+                            echo ">>> K3s not ready yet. Waiting..."
+                            sleep 5
+                        done
+
+                        if ! sudo systemctl is-active --quiet k3s; then
+                            echo "ERROR: K3s is not running."
+                            sudo systemctl status k3s --no-pager || true
+                            exit 1
+                        fi
+
+                        echo ">>> Configuring kubectl for ubuntu..."
+
+                        sudo mkdir -p /home/ubuntu/.kube
+
+                        sudo cp \
+                            /etc/rancher/k3s/k3s.yaml \
+                            /home/ubuntu/.kube/config
+
+                        sudo chown ubuntu:ubuntu \
+                            /home/ubuntu/.kube/config
+
+                        sudo chmod 600 \
+                            /home/ubuntu/.kube/config
+
+                        echo ">>> Testing Kubernetes access..."
+
+                        kubectl get nodes
+
+                        echo ">>> K3s access is ready."
+                    '
+            '''
+        }
+    }
+}
 
         stage('Create Kubernetes Secret') {
             steps {
